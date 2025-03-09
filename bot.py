@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters
 import logging
 import requests
-from googletrans import Translator
+from deep_translator import GoogleTranslator  # Usando deep-translator
 
 # Configuração de logs
 logging.basicConfig(
@@ -14,61 +14,37 @@ logger = logging.getLogger(__name__)
 # Insira o token do seu bot aqui
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 
-# Chave da API de geolocalização (substitua pela sua chave)
-IPINFO_TOKEN = '1e1946fa6728b1'
-
-# Função para obter a localização via IP
-def get_location_by_ip(ip):
-    url = f"https://ipinfo.io/{ip}?token={IPINFO_TOKEN}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return data.get('country')  # Retorna o código do país (ex: 'BR' para Brasil)
-    return None
-
 # Função para traduzir a mensagem
 def translate_message(text, dest_language):
-    translator = Translator()
-    translation = translator.translate(text, dest=dest_language)
-    return translation.text
-
-# Função para obter a bandeira do país
-def get_country_flag(country_code):
-    # Converte código do país (ex: 'BR') em emoji de bandeira
-    base = ord('🇦') - ord('A')  # Offset para emojis de bandeiras
-    return ''.join(chr(base + ord(char)) for char in country_code.upper())
+    # Lista de idiomas suportados pelo deep-translator (Google Translate)
+    supported_languages = ['pt', 'en', 'es']  # Adicione mais se necessário
+    if dest_language not in supported_languages:
+        dest_language = 'en'  # Fallback para inglês
+    translator = GoogleTranslator(source='auto', target=dest_language)
+    return translator.translate(text)
 
 # Função para enviar mensagem de boas-vindas
 async def welcome(update: Update, context):
     logger.info(f"Novo membro detectado: {update.message.new_chat_members}")
     if update.message.new_chat_members:
         for member in update.message.new_chat_members:
-            user_ip = update.message.from_user.id  # Aproximação, não é IP real
-            country_code = get_location_by_ip(user_ip)
-            if country_code:
-                if country_code == 'BR':
-                    language = 'pt'
-                elif country_code == 'US':
-                    language = 'en'
-                elif country_code == 'ES':
-                    language = 'es'
-                else:
-                    language = 'en'
-                welcome_message = translate_message("Welcome to our official VKINHA community!", language)
-                warning_message = translate_message("⚡️⚡️MAKE SURE YOU ARE ON OUR OFFICIAL WEBSITE VKINHA⚡️⚡️", language)
-                admin_message = translate_message("‼️‼️ ADMIN DONT PM YOU OR ASK FOR FUNDS ‼️‼️", language)
-                location_message = translate_message("Sua localização é:", language)
-                flag = get_country_flag(country_code)
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f"{welcome_message}\n\n{warning_message}\n\n{admin_message}\n\n{location_message} {flag}"
-                )
-            else:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text="Welcome to our official VKINHA community!\n\n⚡️⚡️MAKE SURE YOU ARE ON OUR OFFICIAL WEBSITE VKINHA⚡️⚡️\n\n‼️‼️ ADMIN DONT PM YOU OR ASK FOR FUNDS ‼️‼️"
-                )
+            # Obtém o idioma do usuário via Telegram API
+            language = update.message.from_user.language_code or 'en'  # 'en' como padrão
+            # Usa apenas os primeiros dois caracteres (ex.: 'pt-BR' -> 'pt')
+            language = language[:2].lower()
 
+            # Traduz as mensagens com base no idioma do usuário
+            welcome_message = translate_message("Welcome to our official VKINHA community!", language)
+            warning_message = translate_message("⚡️⚡️MAKE SURE YOU ARE ON OUR OFFICIAL WEBSITE VKINHA⚡️⚡️", language)
+            admin_message = translate_message("‼️‼️ ADMIN DONT PM YOU OR ASK FOR FUNDS ‼️‼️", language)
+
+            # Envia a mensagem de boas-vindas
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"{welcome_message}\n\n{warning_message}\n\n{admin_message}"
+            )
+
+            # Envia os botões de comando
             keyboard = [
                 [InlineKeyboardButton("Contract", url="https://bscscan.com/token/0x7Bd2024cAd405ccA960fE9989334A70153c41682")],
                 [InlineKeyboardButton("Pre-Sale", callback_data='pre_sale')],
