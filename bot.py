@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters
 import logging
 import requests
@@ -31,17 +31,6 @@ def translate_message(text, dest_language):
     translator = Translator()
     translation = translator.translate(text, dest=dest_language)
     return translation.text
-
-# Função para obter a bandeira do país
-def get_country_flag(country_code):
-    # Mapeia códigos de país para emojis de bandeira
-    flag_emojis = {
-        'BR': '🇧🇷',  # Brasil
-        'US': '🇺🇸',  # Estados Unidos
-        'ES': '🇪🇸',  # Espanha
-        # Adicione mais países aqui
-    }
-    return flag_emojis.get(country_code, '🌍')  # Retorna a bandeira ou um globo como padrão
 
 # Função para enviar mensagem de boas-vindas
 async def welcome(update: Update, context):
