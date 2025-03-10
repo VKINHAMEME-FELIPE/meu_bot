@@ -1,7 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters
 import logging
-import requests
 from deep_translator import GoogleTranslator  # Usando deep-translator
 
 # Configuração de logs
@@ -58,6 +57,12 @@ async def welcome(update: Update, context):
                 text="Escolha uma opção:",
                 reply_markup=reply_markup
             )
+
+        # Deleta a mensagem que informa que o novo membro entrou no grupo
+        await context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.message.message_id
+        )
 
 # Função para lidar com os botões
 async def button_handler(update: Update, context):
