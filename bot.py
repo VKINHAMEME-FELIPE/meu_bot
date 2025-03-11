@@ -89,7 +89,7 @@ def main():
             listen="0.0.0.0",  # Escuta em todos os IPs
             port=10000,        # Porta que o Render usa
             url_path=TOKEN,    # Caminho do webhook
-            webhook_url=f"https://meu-bot-telegram-gepf.onrender.com/{TOKEN}"  # URL do webhook
+            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"  # URL do webhook
         )
         logger.info("Bot está rodando com webhook...")
     except Exception as e:
