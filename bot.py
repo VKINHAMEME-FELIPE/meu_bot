@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, CommandHandler
 import logging
 from deep_translator import GoogleTranslator  # Usando deep-translator
 
@@ -46,7 +46,7 @@ async def welcome(update: Update, context):
             # Envia os botões de comando
             keyboard = [
                 [InlineKeyboardButton("Contract", url="https://bscscan.com/token/0x7Bd2024cAd405ccA960fE9989334A70153c41682")],
-                [InlineKeyboardButton("Pre-Sale", callback_data='pre_sale')],
+                [InlineKeyboardButton("Pre-Sale", url=https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")],
                 [InlineKeyboardButton("Site", url="https://www.vkinha.com.br")],
                 [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")],
                 [InlineKeyboardButton("X", url="https://x.com/vkinhacoin")],
@@ -74,13 +74,26 @@ async def button_handler(update: Update, context):
             text="Pre-sale prevista para começar na dxsale no dia 30/03/2025"
         )
 
+# Função para iniciar o bot
 def main():
     logger.info("Iniciando o bot...")
     application = Application.builder().token(TOKEN).build()
+
+    # Adiciona os handlers
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
-    logger.info("Bot está rodando...")
-    application.run_polling()
+
+    # Configuração do webhook
+    try:
+        application.run_webhook(
+            listen="0.0.0.0",  # Escuta em todos os IPs
+            port=10000,        # Porta que o Render usa
+            url_path=TOKEN,    # Caminho do webhook
+            webhook_url=f"https://meu-bot-telegram-gepf.onrender.com/{TOKEN}"  # URL do webhook
+        )
+        logger.info("Bot está rodando com webhook...")
+    except Exception as e:
+        logger.error(f"Erro ao iniciar o bot: {e}")
 
 if __name__ == '__main__':
     main()
