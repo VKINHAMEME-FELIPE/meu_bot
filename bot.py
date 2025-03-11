@@ -46,7 +46,7 @@ async def welcome(update: Update, context):
             # Envia os botões de comando
             keyboard = [
                 [InlineKeyboardButton("Contract", url="https://bscscan.com/token/0x7Bd2024cAd405ccA960fE9989334A70153c41682")],
-                [InlineKeyboardButton("Pre-Sale", url=https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")],
+                [InlineKeyboardButton("Pre-Sale", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")],
                 [InlineKeyboardButton("Site", url="https://www.vkinha.com.br")],
                 [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")],
                 [InlineKeyboardButton("X", url="https://x.com/vkinhacoin")],
