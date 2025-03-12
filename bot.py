@@ -73,7 +73,7 @@ async def start(update: Update, context):
     logger.info("Comando /start recebido")
 
 async def set_webhook(application):
-    webhook_url = f"https://meu-bot-t.onrender.com/{TOKEN}"  # Substitua pelo seu URL real do Render
+    webhook_url = f"https://meu-bot-t.onrender.com/{TOKEN}"
     await application.bot.setWebhook(webhook_url)
     logger.info(f"Webhook configurado para: {webhook_url}")
 
@@ -108,7 +108,6 @@ async def send_periodic_messages(application):
         }
     ]
 
-    # Inicializa a lista de IDs de mensagens no bot_data
     if "message_ids" not in application.bot_data:
         application.bot_data["message_ids"] = []
 
@@ -127,7 +126,6 @@ async def send_periodic_messages(application):
             translated_text = translate_message(messages[message_index]["text"], language)
             reply_markup = InlineKeyboardMarkup(messages[message_index]["keyboard"]) if messages[message_index]["keyboard"] else None
 
-            # A partir da terceira mensagem (índice 2), apaga a mensagem enviada duas iterações atrás
             if message_index >= 2 and len(application.bot_data["message_ids"]) >= 2:
                 message_to_delete = application.bot_data["message_ids"].pop(0)
                 try:
@@ -136,7 +134,6 @@ async def send_periodic_messages(application):
                 except Exception as e:
                     logger.error(f"Erro ao deletar mensagem {message_to_delete}: {e}")
 
-            # Envia a nova mensagem
             sent_message = await application.bot.send_message(
                 chat_id=chat_id,
                 text=translated_text,
@@ -145,18 +142,19 @@ async def send_periodic_messages(application):
             application.bot_data["message_ids"].append(sent_message.message_id)
             logger.info(f"Mensagem enviada: {translated_text}, ID: {sent_message.message_id}")
 
-            # Avança para a próxima mensagem
             message_index = (message_index + 1) % total_messages
-
-            # Aguarda 15 minutos
             await asyncio.sleep(900)
         except Exception as e:
             logger.error(f"Erro ao enviar mensagem periódica: {e}")
             await asyncio.sleep(900)
 
+async def post_init(application):
+    """Função chamada após a inicialização do Application para agendar tarefas."""
+    application.create_task(send_periodic_messages(application))
+
 def main():
     logger.info("Iniciando o bot...")
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
 
     # Adiciona os handlers
     application.add_handler(CommandHandler("start", start))
@@ -172,11 +170,8 @@ def main():
 
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
 
-    # Configura o webhook e inicia a tarefa periódica
+    # Configura o webhook
     asyncio.run(set_webhook(application))
-    
-    # Usa o método Application.create_task para iniciar a tarefa assíncrona
-    application.create_task(send_periodic_messages(application))
 
     # Inicia o webhook
     try:
@@ -184,7 +179,7 @@ def main():
             listen="0.0.0.0",
             port=10000,
             url_path=TOKEN,
-            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"  # Substitua pelo seu URL real do Render
+            webhook_url=f"https://meu-bot-t.onrender.com/{7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w}"
         )
         logger.info("Bot está rodando com webhook...")
     except Exception as e:
