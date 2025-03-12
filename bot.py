@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 GROUP_CHAT_ID = '-1002405955713'
 PORT = int(os.getenv('PORT', 8080))
-WEBHOOK_URL = 'https://meu-bot-t.onrender.com/webhook'  # Ajuste se for um novo serviço
+WEBHOOK_URL = 'https://meu-bot-t.onrender.com/webhook'
 
 def translate_message(text, dest_language='en'):
     supported_languages = ['pt', 'en', 'es']
@@ -78,35 +78,35 @@ async def send_periodic_messages(context: CallbackContext):
         {"text": "Check out our Roadmap:", "keyboard": [[InlineKeyboardButton("Roadmap Link", url="https://vkinha.com/roadmap.html")]]}
     ]
 
-    if "message_ids" not in context.bot_data:
-        context.bot_data["message_ids"] = []
     if "current_message_index" not in context.bot_data:
         context.bot_data["current_message_index"] = 0
 
-    logger.info("Starting periodic messages loop")
-    while True:
-        index = context.bot_data["current_message_index"]
-        message_data = messages[index]
-        try:
-            logger.info(f"Sending message {index + 1}/{len(messages)}: {message_data['text'][:50]}...")
-            sent_message = await context.bot.send_message(
+    index = context.bot_data["current_message_index"]
+    message_data = messages[index]
+    
+    try:
+        logger.info(f"Sending message {index + 1}/{len(messages)}")
+        sent_message = await context.bot.send_message(
+            chat_id=GROUP_CHAT_ID,
+            text=message_data["text"],
+            reply_markup=InlineKeyboardMarkup(message_data["keyboard"]) if message_data["keyboard"] else None
+        )
+        
+        if "message_ids" not in context.bot_data:
+            context.bot_data["message_ids"] = []
+        context.bot_data["message_ids"].append(sent_message.message_id)
+        
+        if len(context.bot_data["message_ids"]) > 3:
+            old_msg = context.bot_data["message_ids"].pop(0)
+            await context.bot.delete_message(
                 chat_id=GROUP_CHAT_ID,
-                text=message_data["text"],
-                reply_markup=InlineKeyboardMarkup(message_data["keyboard"]) if message_data["keyboard"] else None
+                message_id=old_msg
             )
-            context.bot_data["message_ids"].append(sent_message.message_id)
-            if len(context.bot_data["message_ids"]) > 3:
-                old_msg = context.bot_data["message_ids"].pop(0)
-                await context.bot.delete_message(
-                    chat_id=GROUP_CHAT_ID,
-                    message_id=old_msg
-                )
-            context.bot_data["current_message_index"] = (index + 1) % len(messages)
-            logger.info(f"Message sent successfully. Waiting 15 minutes...")
-            await asyncio.sleep(900)
-        except Exception as e:
-            logger.error(f"Error in periodic messages: {e}")
-            await asyncio.sleep(900)
+        
+        context.bot_data["current_message_index"] = (index + 1) % len(messages)
+        
+    except Exception as e:
+        logger.error(f"Error: {e}")
 
 async def get_chat_id(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Chat ID: {update.effective_chat.id}")
@@ -115,6 +115,9 @@ async def webhook_handler(request):
     app = request.app['telegram_app']
     update = Update.de_json(json.loads(await request.text()), app.bot)
     await app.process_update(update)
+    return web.Response(text="OK")
+
+async def handle_root(request):
     return web.Response(text="OK")
 
 async def setup_webhook(application):
@@ -138,17 +141,19 @@ async def main():
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(CommandHandler("chatid", get_chat_id))
+    
     job_queue = application.job_queue
     job_queue.run_repeating(
         callback=send_periodic_messages,
         interval=900,
-        first=5,
+        first=10,
         chat_id=GROUP_CHAT_ID
     )
 
     app = web.Application()
     app['telegram_app'] = application
     app.router.add_post('/webhook', webhook_handler)
+    app.router.add_get('/', handle_root)
 
     await application.initialize()
     await setup_webhook(application)
@@ -160,8 +165,7 @@ async def main():
     await site.start()
 
     logger.info(f"Server running on port {PORT}")
-    while True:
-        await asyncio.sleep(3600)
+    await asyncio.Event().wait()
 
 if __name__ == '__main__':
     asyncio.run(main())
