@@ -112,7 +112,7 @@ async def send_periodic_messages(application):
     if "message_ids" not in application.bot_data:
         application.bot_data["message_ids"] = []
 
-    message_index = 0  # Para controlar qual mensagem está sendo enviada
+    message_index = 0
     total_messages = len(messages)
 
     while True:
@@ -129,7 +129,7 @@ async def send_periodic_messages(application):
 
             # A partir da terceira mensagem (índice 2), apaga a mensagem enviada duas iterações atrás
             if message_index >= 2 and len(application.bot_data["message_ids"]) >= 2:
-                message_to_delete = application.bot_data["message_ids"].pop(0)  # Remove e obtém o ID mais antigo
+                message_to_delete = application.bot_data["message_ids"].pop(0)
                 try:
                     await application.bot.delete_message(chat_id=chat_id, message_id=message_to_delete)
                     logger.info(f"Mensagem {message_to_delete} deletada para evitar flood.")
@@ -145,7 +145,7 @@ async def send_periodic_messages(application):
             application.bot_data["message_ids"].append(sent_message.message_id)
             logger.info(f"Mensagem enviada: {translated_text}, ID: {sent_message.message_id}")
 
-            # Avança para a próxima mensagem, reiniciando o ciclo se necessário
+            # Avança para a próxima mensagem
             message_index = (message_index + 1) % total_messages
 
             # Aguarda 15 minutos
@@ -158,10 +158,12 @@ def main():
     logger.info("Iniciando o bot...")
     application = Application.builder().token(TOKEN).build()
 
+    # Adiciona os handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
 
+    # Atualiza chat_id e idioma
     async def update_chat_info(update: Update, context):
         application.bot_data["chat_id"] = update.effective_chat.id
         language = update.message.from_user.language_code or 'en'
@@ -170,9 +172,13 @@ def main():
 
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
 
+    # Configura o webhook e inicia a tarefa periódica
     asyncio.run(set_webhook(application))
-    asyncio.get_event_loop().create_task(send_periodic_messages(application))
+    
+    # Usa o método Application.create_task para iniciar a tarefa assíncrona
+    application.create_task(send_periodic_messages(application))
 
+    # Inicia o webhook
     try:
         application.run_webhook(
             listen="0.0.0.0",
