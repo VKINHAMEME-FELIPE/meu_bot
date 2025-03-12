@@ -3,6 +3,8 @@ from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filt
 import logging
 from deep_translator import GoogleTranslator
 import asyncio
+from aiohttp import web
+import json
 
 # Configuração de logs
 logging.basicConfig(
@@ -13,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 GROUP_CHAT_ID = '-1002405955713'  # ID do seu grupo
+PORT = 8080  # Porta que o Render espera
+WEBHOOK_URL = 'https://seu-app.render.com/webhook'  # Substitua por sua URL do Render
 
 def translate_message(text, dest_language='en'):
     supported_languages = ['pt', 'en', 'es']
@@ -52,7 +56,7 @@ async def welcome(update: Update, context: CallbackContext):
                 message_id=update.message.message_id
             )
     except Exception as e:
-        logger.error(f"Erro no welcome: {e}")
+        logger.error(f"Error in welcome: {e}")
 
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -111,21 +115,58 @@ async def send_periodic_messages(context: CallbackContext):
 async def get_chat_id(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Chat ID: {update.effective_chat.id}")
 
-def main():
+# Função para lidar com requisições webhook
+async def webhook_handler(request):
+    app = request.app['telegram_app']
+    update = Update.de_json(json.loads(await request.text()), app.bot)
+    await app.process_update(update)
+    return web.Response(text="OK")
+
+async def setup_webhook(application):
+    # Remove qualquer webhook existente e configura o novo
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    logger.info(f"Webhook set to {WEBHOOK_URL}")
+
+async def main():
+    # Cria a aplicação Telegram
     application = Application.builder().token(TOKEN).build()
-    
+
+    # Adiciona handlers
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(CommandHandler("chatid", get_chat_id))
-    
+
+    # Agenda mensagens periódicas
     job_queue = application.job_queue
-    job_queue.run_once(
-        callback=lambda ctx: send_periodic_messages(ctx),
-        when=5,
+    job_queue.run_repeating(
+        callback=send_periodic_messages,
+        interval=900,  # 15 minutos
+        first=5,  # Inicia após 5 segundos
         chat_id=GROUP_CHAT_ID
     )
 
-    application.run_polling()
+    # Configura o servidor web com aiohttp
+    app = web.Application()
+    app['telegram_app'] = application
+    app.router.add_post('/webhook', webhook_handler)
+
+    # Inicializa a aplicação Telegram
+    await application.initialize()
+    await setup_webhook(application)
+    await application.start()
+
+    # Inicia o servidor web
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+
+    logger.info(f"Server running on port {PORT}")
+    
+    # Mantém o loop rodando
+    while True:
+        await asyncio.sleep(3600)  # Mantém o processo ativo
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
