@@ -148,13 +148,9 @@ async def send_periodic_messages(application):
             logger.error(f"Erro ao enviar mensagem periódica: {e}")
             await asyncio.sleep(900)
 
-async def post_init(application):
-    """Função chamada após a inicialização do Application para agendar tarefas."""
-    application.create_task(send_periodic_messages(application))
-
-async def main():
+def main():
     logger.info("Iniciando o bot...")
-    application = Application.builder().token(TOKEN).post_init(post_init).build()
+    application = Application.builder().token(TOKEN).build()
 
     # Adiciona os handlers
     application.add_handler(CommandHandler("start", start))
@@ -170,11 +166,14 @@ async def main():
 
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
 
-    # Configura o webhook
-    await set_webhook(application)
+    # Configura o webhook antes de iniciar
+    asyncio.run(set_webhook(application))
+
+    # Inicia a tarefa periódica
+    application.create_task(send_periodic_messages(application))
 
     # Inicia o webhook
-    await application.run_webhook(
+    application.run_webhook(
         listen="0.0.0.0",
         port=10000,
         url_path=TOKEN,
@@ -183,4 +182,4 @@ async def main():
     logger.info("Bot está rodando com webhook...")
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
