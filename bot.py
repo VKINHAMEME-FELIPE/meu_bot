@@ -1,7 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, CommandHandler
 import logging
-from deep_translator import GoogleTranslator  # Usando deep-translator
+from deep_translator import GoogleTranslator
+import asyncio
 
 # Configuração de logs
 logging.basicConfig(
@@ -10,61 +11,54 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Insira o token do seu bot aqui
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 
-# Função para traduzir a mensagem
 def translate_message(text, dest_language):
-    # Lista de idiomas suportados pelo deep-translator (Google Translate)
-    supported_languages = ['pt', 'en', 'es']  # Adicione mais se necessário
+    supported_languages = ['pt', 'en', 'es']
     if dest_language not in supported_languages:
-        dest_language = 'en'  # Fallback para inglês
+        dest_language = 'en'
     translator = GoogleTranslator(source='auto', target=dest_language)
     return translator.translate(text)
 
-# Função para enviar mensagem de boas-vindas
 async def welcome(update: Update, context):
     logger.info(f"Novo membro detectado: {update.message.new_chat_members}")
     if update.message.new_chat_members:
         for member in update.message.new_chat_members:
-            # Obtém o idioma do usuário via Telegram API
-            language = update.message.from_user.language_code or 'en'  # 'en' como padrão
-            # Usa apenas os primeiros dois caracteres (ex.: 'pt-BR' -> 'pt')
-            language = language[:2].lower()
+            try:
+                language = update.message.from_user.language_code or 'en'
+                language = language[:2].lower()
+                logger.info(f"Processando membro: {member.username} - Idioma: {language}")
 
-            # Traduz as mensagens com base no idioma do usuário
-            welcome_message = translate_message("Welcome to our official VKINHA community!", language)
-            warning_message = translate_message("⚡️⚡️MAKE SURE YOU ARE ON OUR OFFICIAL WEBSITE VKINHA⚡️⚡️", language)
-            admin_message = translate_message("‼️‼️ ADMIN DONT PM YOU OR ASK FOR FUNDS ‼️‼️", language)
+                welcome_message = translate_message("Welcome to our official VKINHA community!", language)
+                warning_message = translate_message("⚡️⚡️MAKE SURE YOU ARE ON OUR OFFICIAL WEBSITE VKINHA⚡️⚡️", language)
+                admin_message = translate_message("‼️‼️ ADMIN DONT PM YOU OR ASK FOR FUNDS ‼️‼️", language)
 
-            # Envia a mensagem de boas-vindas
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"{welcome_message}\n\n{warning_message}\n\n{admin_message}"
-            )
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"{welcome_message}\n\n{warning_message}\n\n{admin_message}"
+                )
 
-            # Envia os botões de comando
-            keyboard = [
-                [InlineKeyboardButton("Contract", url="https://bscscan.com/token/0x7Bd2024cAd405ccA960fE9989334A70153c41682")],
-                [InlineKeyboardButton("Pre-Sale", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")],
-                [InlineKeyboardButton("Site", url="https://www.vkinha.com.br")],
-                [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")],
-                [InlineKeyboardButton("X", url="https://x.com/vkinhacoin")],
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="Escolha uma opção:",
-                reply_markup=reply_markup
-            )
+                keyboard = [
+                    [InlineKeyboardButton("Contract", url="https://bscscan.com/token/0x7Bd2024cAd405ccA960fE9989334A70153c41682")],
+                    [InlineKeyboardButton("Pre-Sale", callback_data="pre_sale")],
+                    [InlineKeyboardButton("Site", url="https://www.vkinha.com.br")],
+                    [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")],
+                    [InlineKeyboardButton("X", url="https://x.com/vkinhacoin")],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="Escolha uma opção:",
+                    reply_markup=reply_markup
+                )
 
-        # Deleta a mensagem que informa que o novo membro entrou no grupo
-        await context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.message.message_id
-        )
+                await context.bot.delete_message(
+                    chat_id=update.effective_chat.id,
+                    message_id=update.message.message_id
+                )
+            except Exception as e:
+                logger.error(f"Erro ao processar novo membro: {e}")
 
-# Função para lidar com os botões
 async def button_handler(update: Update, context):
     query = update.callback_query
     await query.answer()
@@ -74,22 +68,117 @@ async def button_handler(update: Update, context):
             text="Pre-sale prevista para começar na dxsale no dia 30/03/2025"
         )
 
-# Função para iniciar o bot
+async def start(update: Update, context):
+    await update.message.reply_text("Bot está funcionando!")
+    logger.info("Comando /start recebido")
+
+async def set_webhook(application):
+    webhook_url = f"https://meu-bot-t.onrender.com/{TOKEN}"  # Substitua pelo seu URL real do Render
+    await application.bot.setWebhook(webhook_url)
+    logger.info(f"Webhook configurado para: {webhook_url}")
+
+async def send_periodic_messages(application):
+    messages = [
+        {
+            "text": "Visite nosso site: www.vkinha.com",
+            "keyboard": []
+        },
+        {
+            "text": "O Projeto é novo visualize melhor nosso RoadMap",
+            "keyboard": [[InlineKeyboardButton("RoadMap", url="https://vkinha.com/roadmap.html")]]
+        },
+        {
+            "text": "Vocês já seguem nosso Twitter(X) ou Instagram?",
+            "keyboard": [
+                [InlineKeyboardButton("Twitter(X)", url="https://x.com/vkinhacoin")],
+                [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")]
+            ]
+        },
+        {
+            "text": "Já está programado a pré-venda DxSale\nClique em: Leave some votes and get this sale trending! no DxSale e deixe seu apoio",
+            "keyboard": [[InlineKeyboardButton("DxSale", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")]]
+        },
+        {
+            "text": "Você viu que estamos com parcerias sendo desenvolvidas com Azbit, CryptoPix, Bifinance, Byconomy, CertiK e Gate.io",
+            "keyboard": [
+                [InlineKeyboardButton("Azbit", url="https://azbit.com"), InlineKeyboardButton("CryptoPix", url="https://cryptopix.com")],
+                [InlineKeyboardButton("Bifinance", url="https://bifinance.com"), InlineKeyboardButton("Byconomy", url="https://byconomy.com")],
+                [InlineKeyboardButton("CertiK", url="https://certik.com"), InlineKeyboardButton("Gate.io", url="https://gate.io")]
+            ]
+        }
+    ]
+
+    # Inicializa a lista de IDs de mensagens no bot_data
+    if "message_ids" not in application.bot_data:
+        application.bot_data["message_ids"] = []
+
+    message_index = 0  # Para controlar qual mensagem está sendo enviada
+    total_messages = len(messages)
+
+    while True:
+        try:
+            chat_id = application.bot_data.get("chat_id")
+            if not chat_id:
+                logger.warning("Nenhum chat_id definido para mensagens periódicas.")
+                await asyncio.sleep(900)
+                continue
+
+            language = application.bot_data.get("language", "en")
+            translated_text = translate_message(messages[message_index]["text"], language)
+            reply_markup = InlineKeyboardMarkup(messages[message_index]["keyboard"]) if messages[message_index]["keyboard"] else None
+
+            # A partir da terceira mensagem (índice 2), apaga a mensagem enviada duas iterações atrás
+            if message_index >= 2 and len(application.bot_data["message_ids"]) >= 2:
+                message_to_delete = application.bot_data["message_ids"].pop(0)  # Remove e obtém o ID mais antigo
+                try:
+                    await application.bot.delete_message(chat_id=chat_id, message_id=message_to_delete)
+                    logger.info(f"Mensagem {message_to_delete} deletada para evitar flood.")
+                except Exception as e:
+                    logger.error(f"Erro ao deletar mensagem {message_to_delete}: {e}")
+
+            # Envia a nova mensagem
+            sent_message = await application.bot.send_message(
+                chat_id=chat_id,
+                text=translated_text,
+                reply_markup=reply_markup
+            )
+            application.bot_data["message_ids"].append(sent_message.message_id)
+            logger.info(f"Mensagem enviada: {translated_text}, ID: {sent_message.message_id}")
+
+            # Avança para a próxima mensagem, reiniciando o ciclo se necessário
+            message_index = (message_index + 1) % total_messages
+
+            # Aguarda 15 minutos
+            await asyncio.sleep(900)
+        except Exception as e:
+            logger.error(f"Erro ao enviar mensagem periódica: {e}")
+            await asyncio.sleep(900)
+
 def main():
     logger.info("Iniciando o bot...")
     application = Application.builder().token(TOKEN).build()
 
-    # Adiciona os handlers
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
 
-    # Configuração do webhook
+    async def update_chat_info(update: Update, context):
+        application.bot_data["chat_id"] = update.effective_chat.id
+        language = update.message.from_user.language_code or 'en'
+        application.bot_data["language"] = language[:2].lower()
+        logger.info(f"Chat ID atualizado: {update.effective_chat.id}, Idioma: {application.bot_data['language']}")
+
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
+
+    asyncio.run(set_webhook(application))
+    asyncio.get_event_loop().create_task(send_periodic_messages(application))
+
     try:
         application.run_webhook(
-            listen="0.0.0.0",  # Escuta em todos os IPs
-            port=10000,        # Porta que o Render usa
-            url_path=TOKEN,    # Caminho do webhook
-            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"  # URL do webhook
+            listen="0.0.0.0",
+            port=10000,
+            url_path=TOKEN,
+            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"  # Substitua pelo seu URL real do Render
         )
         logger.info("Bot está rodando com webhook...")
     except Exception as e:
