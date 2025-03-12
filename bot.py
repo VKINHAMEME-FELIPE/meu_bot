@@ -179,7 +179,7 @@ def main():
             listen="0.0.0.0",
             port=10000,
             url_path=TOKEN,
-            webhook_url=f"https://meu-bot-t.onrender.com/{7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w}"
+            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"
         )
         logger.info("Bot está rodando com webhook...")
     except Exception as e:
