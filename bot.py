@@ -77,116 +77,25 @@ async def set_webhook(application):
     await application.bot.setWebhook(webhook_url)
     logger.info(f"Webhook configurado para: {webhook_url}")
 
-async def send_periodic_messages(application):
-    messages = [
-        {
-            "text": "Visite nosso site: www.vkinha.com",
-            "keyboard": []
-        },
-        {
-            "text": "O Projeto é novo visualize melhor nosso RoadMap",
-            "keyboard": [[InlineKeyboardButton("RoadMap", url="https://vkinha.com/roadmap.html")]]
-        },
-        {
-            "text": "Vocês já seguem nosso Twitter(X) ou Instagram?",
-            "keyboard": [
-                [InlineKeyboardButton("Twitter(X)", url="https://x.com/vkinhacoin")],
-                [InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")]
-            ]
-        },
-        {
-            "text": "Já está programado a pré-venda DxSale\nClique em: Leave some votes and get this sale trending! no DxSale e deixe seu apoio",
-            "keyboard": [[InlineKeyboardButton("DxSale", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")]]
-        },
-        {
-            "text": "Você viu que estamos com parcerias sendo desenvolvidas com Azbit, CryptoPix, Bifinance, Byconomy, CertiK e Gate.io",
-            "keyboard": [
-                [InlineKeyboardButton("Azbit", url="https://azbit.com"), InlineKeyboardButton("CryptoPix", url="https://cryptopix.com")],
-                [InlineKeyboardButton("Bifinance", url="https://bifinance.com"), InlineKeyboardButton("Byconomy", url="https://byconomy.com")],
-                [InlineKeyboardButton("CertiK", url="https://certik.com"), InlineKeyboardButton("Gate.io", url="https://gate.io")]
-            ]
-        }
-    ]
-
-    if "message_ids" not in application.bot_data:
-        application.bot_data["message_ids"] = []
-
-    message_index = 0
-    total_messages = len(messages)
-
-    while True:
-        try:
-            chat_id = application.bot_data.get("chat_id")
-            if not chat_id:
-                logger.warning("Nenhum chat_id definido para mensagens periódicas.")
-                await asyncio.sleep(900)
-                continue
-
-            language = application.bot_data.get("language", "en")
-            translated_text = translate_message(messages[message_index]["text"], language)
-            reply_markup = InlineKeyboardMarkup(messages[message_index]["keyboard"]) if messages[message_index]["keyboard"] else None
-
-            if message_index >= 2 and len(application.bot_data["message_ids"]) >= 2:
-                message_to_delete = application.bot_data["message_ids"].pop(0)
-                try:
-                    await application.bot.delete_message(chat_id=chat_id, message_id=message_to_delete)
-                    logger.info(f"Mensagem {message_to_delete} deletada para evitar flood.")
-                except Exception as e:
-                    logger.error(f"Erro ao deletar mensagem {message_to_delete}: {e}")
-
-            sent_message = await application.bot.send_message(
-                chat_id=chat_id,
-                text=translated_text,
-                reply_markup=reply_markup
-            )
-            application.bot_data["message_ids"].append(sent_message.message_id)
-            logger.info(f"Mensagem enviada: {translated_text}, ID: {sent_message.message_id}")
-
-            message_index = (message_index + 1) % total_messages
-            await asyncio.sleep(900)
-        except Exception as e:
-            logger.error(f"Erro ao enviar mensagem periódica: {e}")
-            await asyncio.sleep(900)
-
-async def post_init(application):
-    """Função chamada após a inicialização do Application para agendar tarefas."""
-    application.create_task(send_periodic_messages(application))
-
-async def main_async():
+async def main():
     logger.info("Iniciando o bot...")
-    application = Application.builder().token(TOKEN).post_init(post_init).build()
+    application = Application.builder().token(TOKEN).build()
 
     # Adiciona os handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
 
-    # Atualiza chat_id e idioma
-    async def update_chat_info(update: Update, context):
-        application.bot_data["chat_id"] = update.effective_chat.id
-        language = update.message.from_user.language_code or 'en'
-        application.bot_data["language"] = language[:2].lower()
-        logger.info(f"Chat ID atualizado: {update.effective_chat.id}, Idioma: {application.bot_data['language']}")
-
-    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
-
-    # Configura o webhook antes de iniciar
+    # Configura o webhook
     await set_webhook(application)
 
-    # Inicia o webhook
+    # Inicia o bot em modo webhook
     await application.run_webhook(
         listen="0.0.0.0",
         port=10000,
         url_path=TOKEN,
         webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"
     )
-    logger.info("Bot está rodando com webhook...")
-
-def main():
-    # Cria um novo loop de eventos e executa o bot
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(main_async())
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
