@@ -152,7 +152,7 @@ async def post_init(application):
     """Função chamada após a inicialização do Application para agendar tarefas."""
     application.create_task(send_periodic_messages(application))
 
-def main():
+async def main():
     logger.info("Iniciando o bot...")
     application = Application.builder().token(TOKEN).post_init(post_init).build()
 
@@ -171,19 +171,16 @@ def main():
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, update_chat_info, block=False))
 
     # Configura o webhook
-    asyncio.run(set_webhook(application))
+    await set_webhook(application)
 
     # Inicia o webhook
-    try:
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=10000,
-            url_path=TOKEN,
-            webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"
-        )
-        logger.info("Bot está rodando com webhook...")
-    except Exception as e:
-        logger.error(f"Erro ao iniciar o bot: {e}")
+    await application.run_webhook(
+        listen="0.0.0.0",
+        port=10000,
+        url_path=TOKEN,
+        webhook_url=f"https://meu-bot-t.onrender.com/{TOKEN}"
+    )
+    logger.info("Bot está rodando com webhook...")
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
