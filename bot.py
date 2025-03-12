@@ -148,9 +148,13 @@ async def send_periodic_messages(application):
             logger.error(f"Erro ao enviar mensagem periódica: {e}")
             await asyncio.sleep(900)
 
+async def post_init(application):
+    """Função chamada após a inicialização do Application para agendar tarefas."""
+    application.create_task(send_periodic_messages(application))
+
 def main():
     logger.info("Iniciando o bot...")
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
 
     # Adiciona os handlers
     application.add_handler(CommandHandler("start", start))
@@ -168,9 +172,6 @@ def main():
 
     # Configura o webhook antes de iniciar
     asyncio.run(set_webhook(application))
-
-    # Inicia a tarefa periódica
-    application.create_task(send_periodic_messages(application))
 
     # Inicia o webhook
     application.run_webhook(
