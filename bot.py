@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 GROUP_CHAT_ID = '-1002405955713'
 PORT = 8080
-WEBHOOK_URL = 'https://seu-app.render.com/webhook'  # Substitua pela URL do Render
+WEBHOOK_URL = 'https://meu-bot-t.onrender.com/webhook'
 
 def translate_message(text, dest_language='en'):
     supported_languages = ['pt', 'en', 'es']
@@ -115,8 +115,20 @@ async def webhook_handler(request):
 
 async def setup_webhook(application):
     await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.bot.set_webhook(url=WEBHOOK_URL)
-    logger.info(f"Webhook set to {WEBHOOK_URL}")
+    # Aguarda 10 segundos para garantir que o servidor esteja ativo e o DNS propagado
+    await asyncio.sleep(10)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            await application.bot.set_webhook(url=WEBHOOK_URL)
+            logger.info(f"Webhook set to {WEBHOOK_URL}")
+            break
+        except Exception as e:
+            logger.error(f"Failed to set webhook (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(5)  # Espera 5 segundos antes de tentar novamente
+            else:
+                raise  # Levanta a exceção se todas as tentativas falharem
 
 async def main():
     application = Application.builder().token(TOKEN).build()
