@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Configurações do Telegram
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
 GROUP_CHAT_ID = '-1002405955713'
-WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'https://meu-bot-t.onrender.com')  # Substitua pelo URL do Render
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'https://meu-bot1.onrender.com')  # Substitua pelo URL do Render
 PORT = int(os.getenv('PORT', 8443))
 
 # Inicializa Flask
