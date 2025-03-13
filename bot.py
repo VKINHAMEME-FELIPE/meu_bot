@@ -1,8 +1,10 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, CommandHandler, CallbackContext, JobQueue
+from flask import Flask, request, jsonify
 import logging
 from deep_translator import GoogleTranslator
 import asyncio
+import os
 
 # Configuração de logs
 logging.basicConfig(
@@ -11,8 +13,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Configurações do Telegram
 TOKEN = '7852634722:AAFPO4V3-6w4NMmUxNatzz4EedyMrE8Mv6w'
-GROUP_CHAT_ID = '-1002405955713'  # ID do seu grupo
+GROUP_CHAT_ID = '-1002405955713'
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'https://meu-bot-t.onrender.com')  # Substitua pelo URL do Render
+PORT = int(os.getenv('PORT', 8443))
+
+# Inicializa Flask
+app = Flask(__name__)
+
+# Inicializa o bot
+application = Application.builder().token(TOKEN).build()
 
 def translate_message(text, dest_language='en'):
     supported_languages = ['pt', 'en', 'es']
@@ -20,6 +31,37 @@ def translate_message(text, dest_language='en'):
         dest_language = 'en'
     return GoogleTranslator(source='auto', target=dest_language).translate(text)
 
+# Função para verificar membresia
+async def verify_telegram_membership(user_id: int) -> dict:
+    try:
+        chat_member = await application.bot.get_chat_member(chat_id=GROUP_CHAT_ID, user_id=user_id)
+        if chat_member.status in ['member', 'administrator', 'creator']:
+            return {"status": True, "message": "Verification successful! The user is in the group."}
+        else:
+            return {"status": False, "message": f"The user is not in the group. Please join the group with ID {GROUP_CHAT_ID} and try again."}
+    except Exception as e:
+        logger.error(f"Error verifying membership: {e}")
+        return {"status": False, "message": "Error verifying membership. Please try again later."}
+
+# Endpoint para o site verificar membresia
+@app.route('/verify', methods=['POST'])
+async def verify_membership():
+    data = request.json
+    username = data.get('username')
+    
+    if not username or not username.startswith('@'):
+        return jsonify({"status": False, "message": "Please provide a valid Telegram username (e.g., @username)."}), 400
+
+    try:
+        # Obtém informações do usuário pelo username
+        chat_member = await application.bot.get_chat_member(chat_id=GROUP_CHAT_ID, user_id=username[1:])  # Remove '@'
+        result = await verify_telegram_membership(chat_member.user.id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error fetching user info for {username}: {e}")
+        return jsonify({"status": False, "message": "User not found or error occurred. Please ensure the username is correct."}), 404
+
+# Handlers do Telegram
 async def welcome(update: Update, context: CallbackContext):
     try:
         if update.message.new_chat_members:
@@ -41,7 +83,7 @@ async def welcome(update: Update, context: CallbackContext):
             ]
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=translate_message("Escolha uma opção:", lang),
+                text=translate_message("Choose an option:", lang),
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             await context.bot.delete_message(
@@ -49,7 +91,7 @@ async def welcome(update: Update, context: CallbackContext):
                 message_id=update.message.message_id
             )
     except Exception as e:
-        logger.error(f"Erro no welcome: {e}")
+        logger.error(f"Error in welcome: {e}")
 
 async def button_handler(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -57,25 +99,25 @@ async def button_handler(update: Update, context: CallbackContext):
     if query.data == 'pre_sale':
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Pre-sale prevista para começar na dxsale no dia 30/03/2025"
+            text="Pre-sale is scheduled to start on DxSale on 03/30/2025."
         )
 
 async def send_periodic_messages(context: CallbackContext):
     messages = [
-        {"text": "🌟 Atualização VKINHA: Fique por dentro do nosso projeto! Visite nosso site oficial: https://www.vkinha.com.br 🌟", "keyboard": None},
-        {"text": "🌟 Atualização VKINHA: Você sabia que a pré-venda na Dxsale está configurada?", "keyboard": [[InlineKeyboardButton("Clique aqui!", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")]]},
-        {"text": "Você sabia que nós estamos fechando parceria com:", "keyboard": [
+        {"text": "🌟 VKINHA Update: Stay informed about our project! Visit our official website: https://www.vkinha.com.br 🌟", "keyboard": None},
+        {"text": "🌟 VKINHA Update: Did you know the pre-sale on DxSale is set up?", "keyboard": [[InlineKeyboardButton("Click here!", url="https://www.dx.app/dxsale/view?address=0x0597Ce945ED83C81AdC47c97139B5602ddb03c69&chain=56")]]},
+        {"text": "Did you know we are partnering with:", "keyboard": [
             [InlineKeyboardButton("Azbit", url="https://azbit.com"), InlineKeyboardButton("Bifinance", url="https://bifinance.com")],
             [InlineKeyboardButton("CertiK", url="https://www.certik.com"), InlineKeyboardButton("Gate.io", url="https://www.gate.io")],
             [InlineKeyboardButton("Cryptopix", url="https://cryptopix.com")]
         ]},
-        {"text": "Siga nosso perfil no Instagram:", "keyboard": [[InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")]]},
-        {"text": "Você conhece nosso perfil do X (Twitter)?", "keyboard": [[InlineKeyboardButton("Twitter", url="https://x.com/vkinhacoin")]]},
-        {"text": "Você já viu nosso CÓDIGO? Veja, ele está verificado e auditado:", "keyboard": [[InlineKeyboardButton("BSCScan", url="https://bscscan.com/address/0x7Bd2024cAd405ccA960fE9989334A70153c41682#code")]]},
-        {"text": "Apoie nossa comunidade! Deixe seu 🔥 no site da DX para nosso token entrar em alta!", "keyboard": None},
-        {"text": "Obrigado por apoiar a VKINHA.", "keyboard": None},
-        {"text": "Você sabia que nós iremos apoiar projetos que ajudam vidas?", "keyboard": None},
-        {"text": "Veja nosso Roadmap:", "keyboard": [[InlineKeyboardButton("Roadmap Link", url="https://vkinha.com/roadmap.html")]]}
+        {"text": "Follow us on Instagram:", "keyboard": [[InlineKeyboardButton("Instagram", url="https://www.instagram.com/vkinhacoin/")]]},
+        {"text": "Do you know our X (Twitter) profile?", "keyboard": [[InlineKeyboardButton("Twitter", url="https://x.com/vkinhacoin")]]},
+        {"text": "Have you seen our CODE? Check it out, it’s verified and audited:", "keyboard": [[InlineKeyboardButton("BSCScan", url="https://bscscan.com/address/0x7Bd2024cAd405ccA960fE9989334A70153c41682#code")]]},
+        {"text": "Support our community! Drop a 🔥 on the DX site to boost our token!", "keyboard": None},
+        {"text": "Thank you for supporting VKINHA.", "keyboard": None},
+        {"text": "Did you know we will support projects that help lives?", "keyboard": None},
+        {"text": "Check out our Roadmap:", "keyboard": [[InlineKeyboardButton("Roadmap Link", url="https://vkinha.com/roadmap.html")]]}
     ]
 
     if "message_ids" not in context.bot_data:
@@ -103,46 +145,28 @@ async def send_periodic_messages(context: CallbackContext):
 
         context.bot_data["current_message_index"] = (index + 1) % len(messages)
     except Exception as e:
-        logger.error(f"Erro ao enviar mensagem periódica: {e}")
+        logger.error(f"Error sending periodic message: {e}")
 
-async def verify_user(update: Update, context: CallbackContext):
-    """Verifica se o usuário está no grupo para o airdrop."""
-    if not update.message or not update.message.text.startswith('/verify'):
-        return
+# Webhook handler
+@app.route('/webhook', methods=['POST'])
+async def webhook():
+    update = Update.de_json(request.get_json(), application.bot)
+    await application.process_update(update)
+    return '', 200
 
-    try:
-        username = update.message.text.split()[1] if len(update.message.text.split()) > 1 else None
-        if not username or not username.startswith('@'):
-            await update.message.reply_text("Por favor, forneça seu username do Telegram (ex: @username).")
-            return
-
-        # Obtém o ID do usuário a partir do username
-        user_id = None
-        chat_member = await context.bot.get_chat_member(chat_id=GROUP_CHAT_ID, user_id=update.message.from_user.id)
-        if chat_member.status in ['member', 'administrator', 'creator']:
-            user_id = update.message.from_user.id
-        else:
-            await update.message.reply_text("Você não está no grupo do Telegram. Entre no grupo com ID " + GROUP_CHAT_ID + " e tente novamente.")
-            return
-
-        await update.message.reply_text(f"Verificação concluída com sucesso, {username}! Você está no grupo.")
-    except Exception as e:
-        logger.error(f"Erro na verificação: {e}")
-        await update.message.reply_text("Erro ao verificar. Tente novamente ou entre em contato com o suporte.")
-
-async def get_chat_id(update: Update, context: CallbackContext):
-    await update.message.reply_text(f"ID deste chat: {update.effective_chat.id}")
-
-def main():
-    application = Application.builder().token(TOKEN).build()
-    
-    # Handlers
+def setup_handlers():
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(CommandHandler("chatid", get_chat_id))
-    application.add_handler(CommandHandler("verify", verify_user))
-    
-    # Agenda mensagens periódicas a cada 15 minutos
+
+async def main():
+    # Configura handlers
+    setup_handlers()
+
+    # Configura o webhook
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    logger.info(f"Webhook set to {WEBHOOK_URL}")
+
+    # Agenda mensagens periódicas
     job_queue = application.job_queue
     job_queue.run_repeating(
         callback=send_periodic_messages,
@@ -150,8 +174,9 @@ def main():
         first=10       # Inicia após 10 segundos
     )
 
-    # Inicia em modo polling
-    application.run_polling()
+    # Inicia o Flask
+    app.run(host='0.0.0.0', port=PORT)
 
 if __name__ == '__main__':
-    main()
+    # Inicia o loop asyncio
+    asyncio.run(main())
